@@ -6,9 +6,11 @@
 
 
 
-#include "ps2dev.h"
+#include <ps2dev.h>
 
 PS2dev mouse(3,2); // 2 data 3clock
+
+const int ps2PowerPin = 5;
 
 char buttons[3] = {0,0,0};
 
@@ -95,10 +97,14 @@ int mousecommand(int command) {
     //FM
     enabled = 1;
     ack();
+    Serial.println("Now Enabled.");
     break;
   case 0xF3: //set sample rate
     ack();
     mouse.read(&val); // for now drop the new rate on the floor
+    Serial.print("Set sample rate: ");
+    Serial.println(val);
+
     //      Serial.println(val,HEX);
     ack();
     break;
@@ -149,20 +155,35 @@ int ycenter;
 int xsum = 0;
 int ysum = 0;
 
+void(* resetFunc) (void) = 0; //declare reset function @ address 0
+
 void setup() {
   unsigned char val;
- 
+  Serial.begin(9600);
+  Serial.println("Just started...");
+
+  pinMode(ps2PowerPin, INPUT); 
+
+  while (digitalRead(ps2PowerPin) == LOW)
+    delay(5);
+  Serial.println("power is on...");
   // send the mouse start up
   while(mouse.write(0xAA)!=0);  
   while(mouse.write(0x00)!=0);
+  //Serial.write("whiles ended");
+  //delay(5000);
+  //Serial.write("whiles ended agian. ");
 
-
+  
+  
 }
 
 
 
-
 void loop() {
+  if (digitalRead(ps2PowerPin) == LOW)
+    resetFunc();
+
   unsigned char  c;
   if( (digitalRead(3)==LOW) || (digitalRead(2) == LOW)) {
     while(mouse.read(&c)) ;
@@ -171,9 +192,39 @@ void loop() {
 
   if (enabled) {
     // move the mouse diagonally
-    delta_x = 1;
-    delta_y = 1;
-    write_packet()  ;
+
+    int32_t sumX = 0;
+    int32_t sumY = 0;
+    while (Serial.available() >= 9) { // Check if at least 8 bytes are available to read (two 32-bit integers)
+      int32_t int1, int2;
+      Serial.readBytes((char*)&int1, sizeof(int1));
+      Serial.readBytes((char*)&int2, sizeof(int2));
+      sumX += int1;
+      sumY += int2;
+
+      int8_t mouseButtons;
+      Serial.readBytes((char*)&mouseButtons, sizeof(mouseButtons));
+
+      buttons[0] = mouseButtons & 1; // first bit, mouse1
+      buttons[1] = (mouseButtons >> 1) & 1; // second bit, mouse2
+      buttons[2] = (mouseButtons >> 2) & 1; // third bit, mouse3
+
+    }
+
+    if (sumX != 0 || sumY != 0)
+    {
+      Serial.print("delta X: ");
+      Serial.print(sumX);
+      Serial.print("   delta Y: ");
+      Serial.println(sumY);
+    }
+    delta_x = sumX;
+    delta_y = sumY;
+    write_packet();
+    
+  }
+  else {
+    Serial.print("Not enabled...");
   }
   delay(50);
 
