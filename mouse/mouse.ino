@@ -159,7 +159,7 @@ void(* resetFunc) (void) = 0; //declare reset function @ address 0
 
 void setup() {
   unsigned char val;
-  Serial.begin(9600);
+  Serial.begin(38400);
   Serial.println("Just started...");
 
   pinMode(ps2PowerPin, INPUT); 
@@ -226,6 +226,6 @@ void loop() {
   else {
     Serial.print("Not enabled...");
   }
-  delay(50);
+  delay(1);
 
 }
